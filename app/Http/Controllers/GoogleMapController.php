@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Config;
+use Illuminate\Support\Facades\Cache;
 
 use function PHPSTORM_META\type;
 
@@ -44,14 +45,21 @@ class GoogleMapController extends Controller
         if ($request->ajax()) {
             $searchName = $request->searchName;
 
-            // if empty search name
             if (empty($searchName)) {
-                $result = $this->googleNearbySearch($lat, $lng, $searchName);
+                if (Cache::has('laravel_cachedefault')) {
+                    $result = Cache::get('laravel_cachedefault');
+                } else {
+                    $result = $this->googleNearbySearch($lat, $lng, $searchName);
+                    Cache::put('laravel_cachedefault', $result, 60);
+                }
             } else {
                 $result[] = $this->googleTextSearch($lat, $lng, $searchName);
+                Cache::put('laravel_cachede_' . $searchName, $result, 60);
             }
+
             return response()->json($result);
         }
+
 
         $result = '';
         $count = 0;
@@ -180,7 +188,7 @@ class GoogleMapController extends Controller
             $curl = curl_init();
 
             curl_setopt_array($curl, array(
-                CURLOPT_URL => 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?inputtype=textquery&input=' . $searchName . '&locationbias=circle%3A2000%4013.828253%2C100.567481&key=AIzaSyCbqwITBpnjJmjMF6GZmKFV1CgktxlC2Hw',
+                CURLOPT_URL => 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?inputtype=textquery&input=' . $searchName . '&locationbias=circle%3A2000%4013.828253%2C100.567481&key=' . $this->googleKey,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => '',
                 CURLOPT_MAXREDIRS => 10,
